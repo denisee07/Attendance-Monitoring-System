@@ -1,0 +1,4 @@
+node_modules/
+school_attendance.db
+.env
+*.log
