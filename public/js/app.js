@@ -303,6 +303,8 @@ function startApp() {
 document.addEventListener('DOMContentLoaded', async () => {
   const menuBtn = document.getElementById('menu-toggle');
   if (menuBtn) menuBtn.addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('open'); });
+  const logoutBtn = document.getElementById('side-logout');
+  if (logoutBtn) logoutBtn.addEventListener('click', async () => { await logout(); });
   window.addEventListener('hashchange', () => { document.getElementById('sidebar').classList.remove('open'); });
   window.addEventListener('hashchange', renderRoute);
   if (window.wireAuthViews) { window.wireAuthViews(); }
