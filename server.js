@@ -90,14 +90,6 @@ addRoute('POST', '/api/auth/register', async (req, res) => {
   const result = await authRoutes.register({ body }, res);
   return result;
 });
-addRoute('POST', '/api/auth/pin', async (req, res) => {
-  const user = authRoutes.authenticate(req.headers['x-auth-token']);
-  if (!user) return sendError(res, 401, 'Unauthorized. Please sign in.');
-  req.user = user;
-  const result = await authRoutes.changePin({ user, body: req.body }, res);
-  return result;
-});
-
 addRoute('GET', '/api/students', async (req, res) => studentRoutes.list(req, res));
 addRoute('POST', '/api/students/import', async (req, res) => studentRoutes.importStudents(req, res));
 addRoute('POST', '/api/students', async (req, res) => studentRoutes.create(req, res));

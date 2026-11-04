@@ -28,11 +28,11 @@ function create(req, res) {
   if (!teacherNo || !fullName) return fail(res, 400, 'Teacher number and full name are required.');
   if (!username || !password) return fail(res, 400, 'Username and password are required.');
   if (!/^[a-z0-9_.-]{3,}$/.test(username)) return fail(res, 400, 'Username must be at least 3 characters (letters, numbers, dots, dashes, underscores).');
-  if (password.length < 6) return fail(res, 400, 'Password must be at least 6 characters.');
+  if (password.length < 8) return fail(res, 400, 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.');
   if (!subject) return fail(res, 400, 'Subject is required.');
   const dup = db.prepare(`SELECT * FROM teachers WHERE teacherNo = ? OR username = ?`).get(teacherNo, username);
   if (dup) return fail(res, 409, 'Teacher number or username already exists.');
-  const teacher = hashTeacher(teacherNo, fullName, b.email, subject, b.gradeLevels ? b.gradeLevels : [], b.sections ? b.sections : [], username, password, b.pin || null);
+  const teacher = hashTeacher(teacherNo, fullName, b.email, subject, b.gradeLevels ? b.gradeLevels : [], b.sections ? b.sections : [], username, password);
   return json(res, 201, { success: true, data: { teacher } });
 }
 

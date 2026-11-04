@@ -9,13 +9,10 @@ const db = new DatabaseSync(path.join(__dirname, 'school_attendance.db'));
 // are committed to the repository.
 const ADMIN_USERNAME = String(process.env.ADMIN_USERNAME || 'admin').trim();
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '');
-const ADMIN_PIN = String(process.env.ADMIN_PIN || '');
 const TEACHER_USERNAME = String(process.env.TEACHER_USERNAME || 'teacher').trim();
 const TEACHER_PASSWORD = String(process.env.TEACHER_PASSWORD || '');
-const TEACHER_PIN = String(process.env.TEACHER_PIN || '');
 const STUDENT_USERNAME = String(process.env.STUDENT_USERNAME || 'student').trim();
 const STUDENT_PASSWORD = String(process.env.STUDENT_PASSWORD || '');
-const STUDENT_PIN = String(process.env.STUDENT_PIN || '');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
@@ -27,8 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('admin','teacher','student')),
   fullName TEXT NOT NULL,
   studentId TEXT,
-  createdAt TEXT NOT NULL,
-  pinHash TEXT NOT NULL DEFAULT ''
+  createdAt TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -82,6 +78,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   sectionId INTEGER NOT NULL,
   date TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('present','absent','late','excused')),
+
   teacherId INTEGER NOT NULL,
   recordedAt TEXT NOT NULL,
   UNIQUE (studentId, sectionId, date)
@@ -114,32 +111,6 @@ function verifyPassword(password, stored) {
   } catch (e) {
     return false;
   }
-}
-
-// Secure passcode (PIN) hashing - scrypt with per-entry salt, compared timing-safe.
-function hashPin(pin) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(`pin:${String(pin)}`, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
-}
-
-function verifyPin(pin, stored) {
-  try {
-    const [salt, hash] = String(stored || '').split(':');
-    const test = crypto.scryptSync(`pin:${String(pin)}`, salt, 64).toString('hex');
-    const a = Buffer.from(hash, 'hex');
-    const b = Buffer.from(test, 'hex');
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
-  } catch (e) {
-    return false;
-  }
-}
-
-function genPin() {
-  const min = 100000;
-  const max = 999999;
-  const n = min + Math.floor(Math.random() * (max - min + 1));
-  return String(n);
 }
 
 function genToken() {
@@ -189,29 +160,28 @@ function toPlainObject(row) {
   return o;
 }
 
-function hashTeacher(teacherNo, fullName, email, subject, gradeLevels, sections, username, password, pin) {
+function hashTeacher(teacherNo, fullName, email, subject, gradeLevels, sections, username, password) {
   const now = nowStr();
-  const teacherPin = (pin && String(pin).trim()) ? String(pin).trim() : genPin();
   const info = db.prepare(`INSERT INTO teachers (teacherNo,fullName,email,subject,gradeLevels,sections,username,passwordHash,salt,userId,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
     .run(teacherNo, fullName, email || null, subject || null, gradeLevels ? JSON.stringify(gradeLevels) : null, sections ? JSON.stringify(sections) : null, username, hashPassword(password), '', null, now);
   const teacherId = Number(info.lastInsertRowid);
-  const userInfo = db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt,pinHash) VALUES (?,?,?,?,?,?,?,?,?)`)
-    .run(username, email || `${username}@school.edu`, hashPassword(password), '', 'teacher', fullName, null, now, hashPin(teacherPin));
+  const userInfo = db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt) VALUES (?,?,?,?,?,?,?,?)`)
+    .run(username, email || `${username}@school.edu`, hashPassword(password), '', 'teacher', fullName, null, now);
   const userId = Number(userInfo.lastInsertRowid);
   db.prepare(`UPDATE teachers SET userId = ? WHERE id = ?`).run(userId, teacherId);
-  return { id: teacherId, userId, teacherNo: teacherNo, fullName, email, subject, gradeLevels, sections, username, pin: teacherPin, createdAt: now };
+  return { id: teacherId, userId, teacherNo: teacherNo, fullName, email, subject, gradeLevels, sections, username, createdAt: now };
 }
 
 function seed() {
   const now = nowStr();
 
-  db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt,pinHash) VALUES (?,?,?,?,?,?,?,?,?)`)
-    .run(ADMIN_USERNAME, `admin@school.edu`, hashPassword(ADMIN_PASSWORD), '', 'admin', 'System Administrator', null, now, hashPin(ADMIN_PIN));
+  db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt) VALUES (?,?,?,?,?,?,?,?)`)
+    .run(ADMIN_USERNAME, `admin@school.edu`, hashPassword(ADMIN_PASSWORD), '', 'admin', 'System Administrator', null, now);
 
-  const t1 = hashTeacher('T-001', 'Daniel Reyes', 'daniel.reyes@school.edu', 'Mathematics', ['7'], ['7-A'], `${TEACHER_USERNAME}`, TEACHER_PASSWORD, TEACHER_PIN);
-  const t2 = hashTeacher('T-002', 'Maria Santos', 'maria.santos@school.edu', 'Science', ['8'], ['8-B'], `${TEACHER_USERNAME}2`, TEACHER_PASSWORD, TEACHER_PIN);
-  const t3 = hashTeacher('T-003', 'Pedro Jimenez', 'pedro.jimenez@school.edu', 'English', ['9'], ['9-A'], `${TEACHER_USERNAME}3`, TEACHER_PASSWORD, TEACHER_PIN);
-  const t4 = hashTeacher('T-004', 'Angela Gomez', 'angela.gomez@school.edu', 'History', ['10'], ['10-B'], `${TEACHER_USERNAME}4`, TEACHER_PASSWORD, TEACHER_PIN);
+  const t1 = hashTeacher('T-001', 'Daniel Reyes', 'daniel.reyes@school.edu', 'Mathematics', ['7'], ['7-A'], `${TEACHER_USERNAME}`, TEACHER_PASSWORD);
+  const t2 = hashTeacher('T-002', 'Maria Santos', 'maria.santos@school.edu', 'Science', ['8'], ['8-B'], `${TEACHER_USERNAME}2`, TEACHER_PASSWORD);
+  const t3 = hashTeacher('T-003', 'Pedro Jimenez', 'pedro.jimenez@school.edu', 'English', ['9'], ['9-A'], `${TEACHER_USERNAME}3`, TEACHER_PASSWORD);
+  const t4 = hashTeacher('T-004', 'Angela Gomez', 'angela.gomez@school.edu', 'History', ['10'], ['10-B'], `${TEACHER_USERNAME}4`, TEACHER_PASSWORD);
 
   const sec7a = db.prepare(`INSERT INTO sections (name,gradeLevel,schoolYear,adviserTeacherId,createdAt) VALUES (?,?,?,?,?)`)
     .run('A', 7, '2025-2026', Number(t1.id), now);
@@ -244,10 +214,10 @@ function seed() {
     insStudent.run(s[0], s[1], s[2], s[3], s[4], '2025-2026', s[5], linkedUserId, now);
   }
 
-  const su1 = db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt,pinHash) VALUES (?,?,?,?,?,?,?,?,?)`)
-    .run(STUDENT_USERNAME, `student@school.edu`, hashPassword(STUDENT_PASSWORD), '', 'student', 'Juan Dela Cruz', 'STU-2023-014', now, hashPin(STUDENT_PIN));
-  const su2 = db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt,pinHash) VALUES (?,?,?,?,?,?,?,?,?)`)
-    .run(`${STUDENT_USERNAME}2`, `student2@school.edu`, hashPassword(STUDENT_PASSWORD), '', 'student', 'Isabel Flores', 'STU-2024-021', now, hashPin(STUDENT_PIN));
+  const su1 = db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt) VALUES (?,?,?,?,?,?,?,?)`)
+    .run(STUDENT_USERNAME, `student@school.edu`, hashPassword(STUDENT_PASSWORD), '', 'student', 'Juan Dela Cruz', 'STU-2023-014', now);
+  const su2 = db.prepare(`INSERT INTO users (username,email,passwordHash,salt,role,fullName,studentId,createdAt) VALUES (?,?,?,?,?,?,?,?)`)
+    .run(`${STUDENT_USERNAME}2`, `student2@school.edu`, hashPassword(STUDENT_PASSWORD), '', 'student', 'Isabel Flores', 'STU-2024-021', now);
   db.prepare(`UPDATE students SET userId = ? WHERE studentNo = ?`).run(Number(su1.lastInsertRowid), 'STU-2023-014');
   db.prepare(`UPDATE students SET userId = ? WHERE studentNo = ?`).run(Number(su2.lastInsertRowid), 'STU-2024-021');
 
@@ -293,9 +263,6 @@ module.exports = {
   db,
   hashPassword,
   verifyPassword,
-  hashPin,
-  verifyPin,
-  genPin,
   genToken,
   todayStr,
   nowStr,

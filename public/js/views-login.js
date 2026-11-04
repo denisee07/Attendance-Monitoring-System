@@ -19,6 +19,15 @@ function renderRegister() {
   document.getElementById('register-view').classList.remove('hidden');
 }
 
+function isStrongPassword(pw) {
+  const p = String(pw || '');
+  return p.length >= 8 && /[A-Z]/.test(p) && /[a-z]/.test(p) && /[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p);
+}
+
+function passwordError() {
+  return 'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.';
+}
+
 function wireLogin() {
   const form = document.getElementById('login-form');
   form.addEventListener('submit', async (e) => {
@@ -26,12 +35,11 @@ function wireLogin() {
     clearLoginError();
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
-    const pin = document.getElementById('login-pin').value.trim();
     if (!username) { showLoginError('Please enter your username or email.'); return; }
     if (!password) { showLoginError('Please enter your password.'); return; }
-    if (!/^\d{6}$/.test(pin)) { showLoginError('Please enter your 6-digit passcode.'); return; }
+    if (!isStrongPassword(password)) { showLoginError(passwordError()); return; }
     try {
-      const res = await API.post('/auth/login', { usernameOrEmail: username, password, pin });
+      const res = await API.post('/auth/login', { usernameOrEmail: username, password });
       const user = res.data.user;
       API.setToken(res.data.token, user);
       setUser(user);
@@ -41,9 +49,9 @@ function wireLogin() {
       showLoginError(err.message || 'Unable to sign in.');
     }
   });
-  document.getElementById('demo-admin').addEventListener('click', () => { setLoginField('login-username', 'admin'); setLoginField('login-password', 'admin123'); });
-  document.getElementById('demo-teacher').addEventListener('click', () => { setLoginField('login-username', 'teacher'); setLoginField('login-password', 'teach123'); });
-  document.getElementById('demo-student').addEventListener('click', () => { setLoginField('login-username', 'student'); setLoginField('login-password', 'student123'); });
+  document.getElementById('demo-admin').addEventListener('click', () => { setLoginField('login-username', 'admin'); setLoginField('login-password', 'Admin123!'); });
+  document.getElementById('demo-teacher').addEventListener('click', () => { setLoginField('login-username', 'teacher'); setLoginField('login-password', 'Teach123!'); });
+  document.getElementById('demo-student').addEventListener('click', () => { setLoginField('login-username', 'student'); setLoginField('login-password', 'Student123!'); });
 }
 
 function wireRegister() {
@@ -56,7 +64,6 @@ function wireRegister() {
     const gradeLevel = document.getElementById('reg-grade').value;
     const section = document.getElementById('reg-section').value.trim();
     const password = document.getElementById('reg-password').value;
-    const pin = document.getElementById('reg-pin').value.trim();
     const errEl = document.getElementById('login-error');
     const showRegError = (m) => { errEl.textContent = m; errEl.classList.remove('hidden'); };
     if (!username) { showRegError('Username is required.'); return; }
@@ -65,13 +72,12 @@ function wireRegister() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showRegError('Please enter a valid email address.'); return; }
     if (!fullName) { showRegError('Full name is required.'); return; }
     if (!password) { showRegError('Password is required.'); return; }
-    if (password.length < 6) { showRegError('Password must be at least 6 characters.'); return; }
+    if (!isStrongPassword(password)) { showRegError(passwordError()); return; }
     const gl = gradeLevel ? Number(gradeLevel) : null;
     if (gl !== null && (gl < 7 || gl > 12)) { showRegError('Grade level must be between 7 and 12.'); return; }
     if (!section) { showRegError('Section is required.'); return; }
-    if (!/^\d{6}$/.test(pin)) { showRegError('Please enter a valid 6-digit passcode.'); return; }
     try {
-      const res = await API.post('/auth/register', { username, email, password, fullName, gradeLevel: gl, section, pin });
+      const res = await API.post('/auth/register', { username, email, password, fullName, gradeLevel: gl, section });
       const user = res.data.user;
       API.setToken(res.data.token, user);
       setUser(user);

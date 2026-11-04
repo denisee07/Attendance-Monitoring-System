@@ -303,8 +303,7 @@ async function openTeacherAddModal() {
     <div class="field"><label>Assigned Grade Levels (comma separated, e.g. 7,8)</label><input id="tch-add-grades" value="7" /></div>
     <div class="field"><label>Assigned Sections (comma separated, e.g. 7-A, 8-B)</label><input id="tch-add-sections" value="7-A" /></div>
     <div class="field"><label>Username</label><input id="tch-add-username" /></div>
-    <div class="field"><label>Temporary Password</label><input id="tch-add-password" type="password" placeholder="Minimum 6 characters" /></div>
-    <div class="field"><label>Passcode (PIN, 6 digits, optional)</label><input id="tch-add-pin" inputmode="numeric" maxlength="6" /></div>`;
+    <div class="field"><label>Temporary Password</label><input id="tch-add-password" type="password" placeholder="Min 8 characters, with upper/lower/number/special" /></div>`;
   const actions = `<button class="btn btn-secondary" id="modal-cancel">Cancel</button><button class="btn" id="tch-add-save">Add Teacher</button>`;
   openModal('Add Teacher', body, actions);
   document.getElementById('tch-add-save').addEventListener('click', async () => {
@@ -316,14 +315,12 @@ async function openTeacherAddModal() {
     const sectionsRaw = (document.getElementById('tch-add-sections').value || '').split(',').map((x) => x.trim()).filter(Boolean);
     const username = document.getElementById('tch-add-username').value.trim().toLowerCase();
     const password = document.getElementById('tch-add-password').value;
-    const pin = document.getElementById('tch-add-pin').value.trim();
     if (!teacherNo) { toast('Teacher number is required.', 'error'); return; }
     if (!fullName) { toast('Full name is required.', 'error'); return; }
     if (!subject) { toast('Subject is required.', 'error'); return; }
     if (!username || !password) { toast('Username and temporary password are required.', 'error'); return; }
-    if (password.length < 6) { toast('Password must be at least 6 characters.', 'error'); return; }
-    if (!/^\d{6}$/.test(pin)) { toast('Please enter a valid 6-digit passcode.', 'error'); return; }
-    const payload = { teacherNo, fullName, email, subject, gradeLevels: gradesRaw.map(Number), sections: sectionsRaw, username, password, pin };
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) { toast('Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.', 'error'); return; }
+    const payload = { teacherNo, fullName, email, subject, gradeLevels: gradesRaw.map(Number), sections: sectionsRaw, username, password };
     try { await API.post('/teachers', payload); closeModal(); toast('Teacher added successfully.'); renderAdminTeachers(); }
     catch (e) { toast(e.message || 'Add failed.', 'error'); }
   });
@@ -396,7 +393,7 @@ async function openTeacherEdit(id) {
     if (!subject) { toast('Subject is required.', 'error'); return; }
     if (!username) { toast('Username is required.', 'error'); return; }
     const password = document.getElementById('tch-edit-password').value;
-    if (password && password.length < 6) { toast('Password must be at least 6 characters.', 'error'); return; }
+    if (password && (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password))) { toast('Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.', 'error'); return; }
     const payload = {
       fullName,
       email: document.getElementById('tch-edit-email').value.trim(),
